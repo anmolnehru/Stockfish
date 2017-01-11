@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{11D755B4-6922-44F6-B71C-1713F256EDF9}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>StockfishVisualStudio</RootNamespace>
+    <RootNamespace>Stockfish</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
