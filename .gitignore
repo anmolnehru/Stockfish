@@ -1,0 +1,19 @@
+syntax: glob
+
+[Bb]in/
+[Oo]bj/
+[Tt]emp/
+[Tt]mp/
+*/.vs/*
+*.tmp
+*.suo
+*.*proj.user
+*.DotSettings.user
+_ReSharper*
+*.Publish.xml
+*.wbk
+~$*.doc
+*.sdf
+*.ipch
+*.VC.opendb
+*.VC.db
