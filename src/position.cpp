@@ -52,6 +52,9 @@ namespace {
 
 const string PieceToChar(" PNBRQK  pnbrqk");
 
+const Piece Pieces[] = { W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
+                         B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING };
+
 // min_attacker() is a helper function used by see_ge() to locate the least
 // valuable attacker for the side to move, remove the attacker we just found
 // from the bitboards and scan for new X-ray attacks behind it.
@@ -62,7 +65,7 @@ PieceType min_attacker(const Bitboard* bb, Square to, Bitboard stmAttackers,
 
   Bitboard b = stmAttackers & bb[Pt];
   if (!b)
-      return min_attacker<Pt+1>(bb, to, stmAttackers, occupied, attackers);
+      return min_attacker<Pt + 1>(bb, to, stmAttackers, occupied, attackers);
 
   occupied ^= b & ~(b - 1);
 
@@ -1097,10 +1100,10 @@ bool Position::is_draw(int ply) const {
       stp = stp->previous->previous;
 
       // At root position ply is 1, so return a draw score if a position
-      // repeats once earlier but after or at the root, or repeats twice
-      // strictly before the root.
+      // repeats once earlier but strictly after the root, or repeats twice
+      // before or at the root.
       if (   stp->key == st->key
-          && ++cnt + (ply - i > 0) == 2)
+          && ++cnt + (ply - 1 > i) == 2)
           return true;
   }
 
