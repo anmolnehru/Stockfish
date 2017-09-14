@@ -32,16 +32,13 @@ namespace {
   #define S(mg, eg) make_score(mg, eg)
 
   // Isolated pawn penalty by opposed flag
-  const Score Isolated[] = { S(45, 40), S(30, 27) };
+  const Score Isolated[] = { S(27, 30), S(13, 18) };
 
   // Backward pawn penalty by opposed flag
-  const Score Backward[] = { S(56, 33), S(41, 19) };
+  const Score Backward[] = { S(40, 26), S(24, 12) };
 
-  // Unsupported pawn penalty for pawns which are neither isolated or backward
-  const Score Unsupported = S(17, 8);
-
-  // Connected pawn bonus by opposed, phalanx, twice supported and rank
-  Score Connected[2][2][2][RANK_NB];
+  // Connected pawn bonus by opposed, phalanx, #support and rank
+  Score Connected[2][2][3][RANK_NB];
 
   // Doubled pawn penalty
   const Score Doubled = S(18, 38);
@@ -52,32 +49,36 @@ namespace {
     S(17, 16), S(33, 32), S(0, 0), S(0, 0)
   };
 
-  // Weakness of our pawn shelter in front of the king by [distance from edge][rank].
+  // Weakness of our pawn shelter in front of the king by [isKingFile][distance from edge][rank].
   // RANK_1 = 0 is used for files where we have no pawns or our pawn is behind our king.
-  const Value ShelterWeakness[][RANK_NB] = {
-    { V(100), V(20), V(10), V(46), V(82), V( 86), V( 98) },
-    { V(116), V( 4), V(28), V(87), V(94), V(108), V(104) },
-    { V(109), V( 1), V(59), V(87), V(62), V( 91), V(116) },
-    { V( 75), V(12), V(43), V(59), V(90), V( 84), V(112) }
+  const Value ShelterWeakness[][int(FILE_NB) / 2][RANK_NB] = {
+    { { V( 97), V(17), V( 9), V(44), V( 84), V( 87), V( 99) }, // Not On King file
+      { V(106), V( 6), V(33), V(86), V( 87), V(104), V(112) },
+      { V(101), V( 2), V(65), V(98), V( 58), V( 89), V(115) },
+      { V( 73), V( 7), V(54), V(73), V( 84), V( 83), V(111) } },
+    { { V(104), V(20), V( 6), V(27), V( 86), V( 93), V( 82) }, // On King file
+      { V(123), V( 9), V(34), V(96), V(112), V( 88), V( 75) },
+      { V(120), V(25), V(65), V(91), V( 66), V( 78), V(117) },
+      { V( 81), V( 2), V(47), V(63), V( 94), V( 93), V(104) } }
   };
 
   // Danger of enemy pawns moving toward our king by [type][distance from edge][rank].
-  // For the unopposed and unblocked cases, RANK_1 = 0 is used when opponent has no pawn
-  // on the given file, or their pawn is behind our king.
+  // For the unopposed and unblocked cases, RANK_1 = 0 is used when opponent has
+  // no pawn on the given file, or their pawn is behind our king.
   const Value StormDanger[][4][RANK_NB] = {
-    { { V( 0),  V(-290), V(-274), V(57), V(41) },  //BlockedByKing
+    { { V( 0),  V(-290), V(-274), V(57), V(41) },  // BlockedByKing
       { V( 0),  V(  60), V( 144), V(39), V(13) },
       { V( 0),  V(  65), V( 141), V(41), V(34) },
       { V( 0),  V(  53), V( 127), V(56), V(14) } },
-    { { V( 4),  V(  73), V( 132), V(46), V(31) },  //Unopposed
+    { { V( 4),  V(  73), V( 132), V(46), V(31) },  // Unopposed
       { V( 1),  V(  64), V( 143), V(26), V(13) },
       { V( 1),  V(  47), V( 110), V(44), V(24) },
       { V( 0),  V(  72), V( 127), V(50), V(31) } },
-    { { V( 0),  V(   0), V(  79), V(23), V( 1) },  //BlockedByPawn
+    { { V( 0),  V(   0), V(  79), V(23), V( 1) },  // BlockedByPawn
       { V( 0),  V(   0), V( 148), V(27), V( 2) },
       { V( 0),  V(   0), V( 161), V(16), V( 1) },
       { V( 0),  V(   0), V( 171), V(22), V(15) } },
-    { { V(22),  V(  45), V( 104), V(62), V( 6) },  //Unblocked
+    { { V(22),  V(  45), V( 104), V(62), V( 6) },  // Unblocked
       { V(31),  V(  30), V(  99), V(39), V(19) },
       { V(23),  V(  29), V(  96), V(41), V(15) },
       { V(21),  V(  23), V( 116), V(41), V(15) } }
@@ -99,7 +100,7 @@ namespace {
     const Square Left  = (Us == WHITE ? NORTH_WEST : SOUTH_EAST);
 
     Bitboard b, neighbours, stoppers, doubled, supported, phalanx;
-    Bitboard lever, leverPush, connected;
+    Bitboard lever, leverPush;
     Square s;
     bool opposed, backward;
     Score score = SCORE_ZERO;
@@ -134,7 +135,6 @@ namespace {
         neighbours = ourPawns   & adjacent_files_bb(f);
         phalanx    = neighbours & rank_bb(s);
         supported  = neighbours & rank_bb(s - Up);
-        connected  = supported | phalanx;
 
         // A pawn is backward when it is behind all pawns of the same color on the
         // adjacent files and cannot be safely advanced.
@@ -150,7 +150,7 @@ namespace {
             // stopper on adjacent file which controls the way to that rank.
             backward = (b | shift<Up>(b & adjacent_files_bb(f))) & stoppers;
 
-            assert(!backward || !(pawn_attack_span(Them, s + Up) & neighbours));
+            assert(!(backward && (forward_ranks_bb(Them, s + Up) & neighbours)));
         }
 
         // Passed pawns will be properly scored in evaluation because we need
@@ -173,17 +173,14 @@ namespace {
         }
 
         // Score this pawn
-        if (!neighbours)
+        if (supported | phalanx)
+            score += Connected[opposed][!!phalanx][popcount(supported)][relative_rank(Us, s)];
+
+        else if (!neighbours)
             score -= Isolated[opposed];
 
         else if (backward)
             score -= Backward[opposed];
-
-        else if (!supported)
-            score -= Unsupported;
-
-        if (connected)
-            score += Connected[opposed][!!phalanx][more_than_one(supported)][relative_rank(Us, s)];
 
         if (doubled && !supported)
             score -= Doubled;
@@ -205,16 +202,17 @@ namespace Pawns {
 
 void init() {
 
-  static const int Seed[RANK_NB] = { 0, 8, 19, 13, 71, 94, 169, 324 };
+  static const int Seed[RANK_NB] = { 0, 13, 24, 18, 76, 100, 175, 330 };
 
   for (int opposed = 0; opposed <= 1; ++opposed)
       for (int phalanx = 0; phalanx <= 1; ++phalanx)
-          for (int apex = 0; apex <= 1; ++apex)
+          for (int support = 0; support <= 2; ++support)
               for (Rank r = RANK_2; r < RANK_8; ++r)
   {
-      int v = (Seed[r] + (phalanx ? (Seed[r + 1] - Seed[r]) / 2 : 0)) >> opposed;
-      v += (apex ? v / 2 : 0);
-      Connected[opposed][phalanx][apex][r] = make_score(v, v * (r-2) / 4);
+      int v = 17 * support;
+      v += (Seed[r] + (phalanx ? (Seed[r + 1] - Seed[r]) / 2 : 0)) >> opposed;
+
+      Connected[opposed][phalanx][support][r] = make_score(v, v * (r - 2) / 4);
   }
 }
 
@@ -265,7 +263,7 @@ Value Entry::shelter_storm(const Position& pos, Square ksq) {
       Rank rkThem = b ? relative_rank(Us, frontmost_sq(Them, b)) : RANK_1;
 
       int d = std::min(f, FILE_H - f);
-      safety -=  ShelterWeakness[d][rkUs]
+      safety -=  ShelterWeakness[f == file_of(ksq)][d][rkUs]
                + StormDanger
                  [f == file_of(ksq) && rkThem == relative_rank(Us, ksq) + 1 ? BlockedByKing  :
                   rkUs   == RANK_1                                          ? Unopposed :
