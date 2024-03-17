@@ -48,6 +48,7 @@ int main(int argc, char* argv[]) {
 
   UCI::loop(argc, argv);
 
+ // momo codes
   Threads.set(0);
   return 0;
 }
